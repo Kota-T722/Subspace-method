@@ -1,0 +1,211 @@
+---
+title: "Subspace method"
+author: "Kota Takeda"
+date: "2020/2/19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+train<-read.csv("train_MNIST.csv")
+test<-read.csv("test_MNIST.csv")
+train[,"label"] <- as.factor(train[,"label"])
+```
+
+  
+```{r}
+y_train<-train$label
+x_train<-data.matrix(train[,-1])
+x_test<-data.matrix(test)
+```
+  
+```{r warning=FALSE}
+for(i in 1:42000){
+  x_train[i,]<-x_train[i,]/sqrt(x_train[i,]%*%x_train[i,])
+}
+```
+
+```{r warning=FALSE}
+for(i in 1:28000){
+  x_test[i,]<-x_test[i,]/sqrt(x_test[i,]%*%x_test[i,])
+}
+```
+  
+```{r}
+train<-data.frame(label=y_train,x_train)
+```
+
+  
+```{r}
+view_train <- function(x_data, range) {
+  par(mfrow=c(length(range)/5, 5))
+  par(mar=c(0,0,0,0))
+  for (i in range) {
+    m <- matrix(x_data[i,], 28, 28)
+    image(m[,28:1])
+  }
+}
+```
+  
+
+```{r}
+view_label <- function(y_data, range) {
+  matrix(y_data[range], length(range)/5, 5, byrow = TRUE)
+}
+```
+  
+  
+```{r}
+range <- 1:20
+view_train(x_train, range)
+```
+  
+
+```{r}
+view_label(y_train, range)
+```
+  
+
+```{r}
+tr <- list()
+for(i in 1:10){
+  s <- i-1
+  t <- subset(train,train$label== s )[-1]
+  tr[[i]] <-data.matrix(t)
+}
+```
+
+```{r}
+q <- list()
+
+for(i in 1:10){
+  t <- tr[[i]]
+  q[[i]]<-1/nrow(t)*t(t)%*%t
+}
+```
+
+```{r}
+lam_q <- list()
+u_q <- list()
+
+for(i in 1:10){
+  s <- q[[i]]
+  ei <- eigen(s)
+  lam_q[[i]] <- ei$values
+  u_q[[i]] <- ei$vectors
+}
+```
+
+```{r}
+i <-1
+u_q[[i]][,1]%*%u_q[[i]][,1];u_q[[i]][,1]%*%u_q[[i]][,2]
+```
+
+
+
+```{r}
+kpa<-0.95
+a <- list()
+d <- c()
+
+for(i in 1:10){
+  s <- lam_q[[i]]
+  aa <- cumsum(s)/sum(s)
+  a[[i]] <- aa
+  for(j in 1:784){
+    adj<-aa[j]
+    if(kpa>adj){dd<-j}
+  }
+  d[i] <- dd+1
+}
+
+```
+  
+  
+```{r}
+i <- 1
+a[[i]][d[i]-1];a[[i]][d[i]]
+```
+  
+
+## 　  
+  
+- クラス０の射影行列$P_0$を求める。  
+  
+```{r}
+p <- list()
+
+for(i in 1:10){
+  pp <- matrix(0,nrow=784,ncol=784)
+  u_qi <- u_q[[i]]
+  for(j in 1:d[i]){
+    m<-outer(u_qi[,j],u_qi[,j])
+    pp <- pp + m
+  }
+  p[[i]] <- pp
+}
+
+```  
+  
+
+  
+```{r}
+i <- 1
+sum(t(p[[i]])-p[[i]]) 
+sum(p[[i]]%*%p[[i]]-p[[i]]) 
+```
+    
+
+```{r}
+classfun<-function(data,range){
+  y_pred<-c()
+  for(i in range){
+   l<-c() 
+   for(j in 1:10){
+     l[j]<-data[i,]%*%p[[j]]%*%data[i,]
+   }
+   y_pred[i]<-which.max(l)-1
+   }
+  return(y_pred)
+  }
+```  
+
+
+
+```{r}
+range<-1:(42000/42)
+y_pred<-classfun(x_train,range)
+```
+  
+
+```{r}
+tab<-table(y_train[range],y_pred)
+tab
+```
+  
+
+```{r}
+1-sum(diag(tab))/sum(tab)
+```  
+
+
+```{r}
+range1<-1:20
+y_pred1<-classfun(x_test,range1)
+```
+  
+  
+```{r}
+view_train(x_test, range1)
+```
+  
+  
+```{r}
+view_label(y_pred1, range1)
+```  
+
